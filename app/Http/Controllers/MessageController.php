@@ -20,35 +20,7 @@ class MessageController extends Controller
         $app = $this->getApplication();
         $server = $app->server;
         $message = $server->getMessage();
-        $user = $message['FromUserName'];
-        if ('event' === $message['MsgType']) {
-            //接受到一个事件消息,判断消息id,发往对应的handler
-            //v1.0 接收到key = Say_Hello ,调用图灵机器人
-            switch ($message['EventKey']){
-                case 'SAY_HELLO':
-                    //向缓存中写入记录,时长15分钟,key为用户open_id,value为tuling
-                    if(Cache::has($user)){
-                        $this->sendText("嗯,我在这里",$user);
-                    } else{
-                        $this->sendText("你好啊,我来陪你聊天了!",$user);
-                    }
-                    Cache::put($user,'tuling',15);
-                    break;
-                case 'SAY_BYE':
-                    //清除缓存中的值
-                    Cache::forget($user);
-                    $this->sendText("Bye-bye~",$user);
-                    break;
-                default:
-                    break;
-            }
-        }
-        if(Cache::has($user) && 'tuling' === Cache::get($user)){
-            $server->push(\TulingRobotHandler::class, Message::TEXT);
-            Cache::put($user,'tuling',15);
-        } else {
-            $server->push(\SimpleReplyHandler::class);
-        }
+        $server->push(\TulingRobotHandler::class, Message::TEXT);
         $response = $app->server->serve();
 
         // 将响应输出
@@ -91,6 +63,12 @@ class MessageController extends Controller
         ];
 
         $app->menu->create($buttons);
+    }
+
+    public function deleteMenu()
+    {
+        $app = $this->getApplication();
+        $app->menu->delete();
     }
 
 

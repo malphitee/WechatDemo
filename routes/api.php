@@ -24,3 +24,5 @@ Route::any('/test/batchSendMessage','MessageController@batchSendMessage');
 Route::any('/test/getMenu','MessageController@getMenu');
 
 Route::any('/test/setMenu','MessageController@setMenu');
+
+Route::any('/test/deleteMenu','MessageController@deleteMenu');
