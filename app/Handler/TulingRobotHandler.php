@@ -41,36 +41,41 @@ class TulingRobotHandler implements EventHandlerInterface
 
     private function process($response_body)
     {
-        \Log::info($response_body);
-        $result = json_decode($response_body);
-        \Log::info('===========================================');
-        \Log::info($response_body);
-        \Log::info('-------------------------------------------');
-        \Log::info($result);
-        \Log::info('===========================================');
-        return $response_body;
-        switch ($result['code']) {
-            case 100000 :
-                //文本类
-                return $result['text'];
-                break;
-            case 200000:
-                //链接类
-                return $result['text'] . "<br>" . $result['url'];
-            case 302000:
-                //新闻类
-                $message = $result['text'] . "<br>";
-                $data = $result['list'];
-                foreach ($data as $item) {
-                    $content = "";
-                    $content .= '-----------------';
-                    $content .= "标题:" . $item['article'] . "<br>" . "来源:" . $item['source'] . "<br>"
-                        . "详情:" . $item['detailurl'] . "<br>";
-                    $content .= '-----------------';
-                    $message .= $content;
-                }
-                return $message;
+        try{
+            $result = json_decode($response_body,true);
+            switch ($result['code']) {
+                case 100000 :
+                    //文本类
+                    return $result['text'];
+                    break;
+                case 200000:
+                    //链接类
+                    return $result['text'] . "\n" . $result['url'];
+                case 302000:
+                case 308000:
+                    //新闻类与菜谱类合并处理
+                    //新闻类/菜谱类回复信息需要转为图文消息发送,图文消息最大数量限制为8条
+                    $data = $result['list'];
+                    if (count($data) > 8) {
+                        $data = array_slice($data, 0, 8);
+                    }
+                    $items = [];
+                    foreach ($data as $item) {
+                        $items[] = new \EasyWeChat\Kernel\Messages\NewsItem([
+                            'title'         =>  isset($item['article'])?$item['article']:$item['name'],
+                            'description'   =>  isset($item['source'])?$item['source']:$item['info'],
+                            'url'           =>  $item['detailurl'],
+                            'image'         =>  $item['icon']
+                        ]);
+                    }
+                    $message = new \EasyWeChat\Kernel\Messages\News($items);
+                    \Log::info($message->toXmlArray());
+                    return $message;
 
+            }
+        }catch (\Exception $e){
+            \Log::info($e);
         }
+
     }
 }

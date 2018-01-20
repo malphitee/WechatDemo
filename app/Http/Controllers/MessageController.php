@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 
 use App\Http\Requests;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Cache;
 
 class MessageController extends Controller
 {
@@ -17,29 +18,42 @@ class MessageController extends Controller
     public function handler()
     {
         $app = $this->getApplication();
-
-//        $app->server->push(\SimpleReplyHandler::class);
-        $app->server->push(\TulingRobotHandler::class,Message::TEXT);
-
+        $server = $app->server;
+        $message = $server->getMessage();
+        $user = $message['FromUserName'];
+        if ('event' === $message['MsgType']) {
+            //接受到一个事件消息,判断消息id,发往对应的handler
+            //v1.0 接收到key = Say_Hello ,调用图灵机器人
+            switch ($message['EventKey']){
+                case 'SAY_HELLO':
+                    //向缓存中写入记录,时长15分钟,key为用户open_id,value为tuling
+                    if(Cache::has($user)){
+                        $this->sendText("嗯,我在这里",$user);
+                    } else{
+                        $this->sendText("你好啊,我来陪你聊天了!",$user);
+                    }
+                    Cache::put($user,'tuling',15);
+                    break;
+                case 'SAY_BYE':
+                    //清除缓存中的值
+                    Cache::forget($user);
+                    $this->sendText("Bye-bye~",$user);
+                    break;
+                default:
+                    break;
+            }
+        }
+        if(Cache::has($user) && 'tuling' === Cache::get($user)){
+            $server->push(\TulingRobotHandler::class, Message::TEXT);
+            Cache::put($user,'tuling',15);
+        } else {
+            $server->push(\SimpleReplyHandler::class);
+        }
         $response = $app->server->serve();
 
         // 将响应输出
         return $response;
 
-    }
-
-
-
-    public function process123()
-    {
-        $app = $this->getApplication();
-
-        $app->server->push(\SimpleReplyHandler::class);
-
-        $response = $app->server->serve();
-
-        // 将响应输出
-        return $response; // Laravel 里请使用：return $response;
     }
 
     public function getMenu()
@@ -54,29 +68,24 @@ class MessageController extends Controller
         $app = $this->getApplication();
 
         $buttons = [
+//            [
+//                "type" => "click",
+//                "name" => "今日歌曲",
+//                "key"  => "V1001_TODAY_MUSIC"
+//            ],
             [
-                "type" => "click",
-                "name" => "今日歌曲",
-                "key"  => "V1001_TODAY_MUSIC"
-            ],
-            [
-                "name"       => "菜单",
+                "name" => "陪聊机器人",
                 "sub_button" => [
-//                    [
-//                        "type" => "view",
-//                        "name" => "搜索",
-//                        "url"  => "http://www.soso.com/"
-//                    ],
-//                    [
-//                        "type" => "view",
-//                        "name" => "视频",
-//                        "url"  => "http://v.qq.com/"
-//                    ],
                     [
                         "type" => "click",
-                        "name" => "",
-                        "key" => "V1001_GOOD"
+                        "name" => "Hello!",
+                        "key" => "SAY_HELLO"
                     ],
+                    [
+                        "type" => "click",
+                        "name" => "Bye-Bye!",
+                        "key" => "SAY_BYE"
+                    ]
                 ],
             ],
         ];
@@ -85,15 +94,13 @@ class MessageController extends Controller
     }
 
 
-    public function sendText()
+    private function sendText($message,$openId)
     {
-        $message = new Text('Hello world!');
-
+        $message = new Text($message);
         $app = $this->getApplication();
-
-        $openId = 'oh_w1wPjL2x13uJfIaGqQhBH6Yp8';
-
         $result = $app->customer_service->message($message)->to($openId)->send();
+        \Log::info('Send a text');
+        \Log::info($result);
     }
 
     public function getUserList()

@@ -12,7 +12,7 @@ class SimpleReplyHandler implements EventHandlerInterface{
     {
         switch ($message['MsgType']) {
             case 'event':
-                return '收到事件消息';
+//                return '收到事件消息';
                 break;
             case 'text':
                 return "收到一条文字消息\n消息内容是 " . $message['Content'] . "\n用户的openid是 " . $message['FromUserName'];
